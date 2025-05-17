@@ -89,7 +89,7 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: supawipt/project_ecom:latest
+          tags: supawin8/project_ecom:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
