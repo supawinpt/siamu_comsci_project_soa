@@ -7,11 +7,11 @@ def get_connection():
         host=os.environ.get('DB_HOST', 'localhost'),
         user=os.environ.get('DB_USER', 'root'),
         password=os.environ.get('DB_PASSWORD', '1111'),
-        database=os.environ.get('DB_NAME', 'nor_db'),
+        database=os.environ.get('DB_NAME', 'ecom_db'),
         cursorclass=pymysql.cursors.DictCursor
         #host='localhost',
         #user='root',
         #password='1111',
-        #database='nor_db',
+        #database='ecom_db',
     )
     return connection

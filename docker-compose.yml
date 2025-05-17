@@ -3,7 +3,7 @@ version: '3.8'
 services:
   # FastAPI application
   backend:
-    image: <username>/project-ecom-soa:latest
+    image: supawin8/project_ecom:latest
     container_name: fastapi_app
     ports:
       - "8000:8000"
@@ -13,7 +13,7 @@ services:
       - DB_HOST=db  # Using the service name as the host
       - DB_USER=root
       - DB_PASSWORD=1111
-      - DB_NAME=nor_db
+      - DB_NAME=ecom_db
     volumes:
       - ./uploads:/app/uploads  # Persist uploads folder
     # Wait for MySQL to be ready before starting
@@ -36,7 +36,7 @@ services:
       - "3306:3306"
     environment:
       - MYSQL_ROOT_PASSWORD=1111
-      - MYSQL_DATABASE=nor_db
+      - MYSQL_DATABASE=ecom_db
     volumes:
       - mysql_data:/var/lib/mysql  # Persist database data
       - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql  # Initialize database with schema.sql
