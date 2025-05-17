@@ -14,7 +14,7 @@ client = TestClient(app)
 def test_admin_login_page():
     """Test that the admin login page returns a 200 status code."""
     response = client.get("/admin/login/")
-    assert response.status_code == 500
+    assert response.status_code == 200
     assert "login" in response.text.lower()
 
 def test_docs_endpoint():
@@ -25,7 +25,7 @@ def test_docs_endpoint():
 def test_api_endpoints_exist():
     """Test that the API endpoints are defined in the OpenAPI schema."""
     response = client.get("/openapi.json")
-    assert response.status_code == 404
+    assert response.status_code == 200
     
     # Check that the key API endpoints are defined in the schema
     schema = response.json()
