@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Login{% endblock %}
+
+{% block content %}
+{% if user %}
+    <!-- If user is already logged in, show a message and redirect to dashboard -->
+    <div class="max-w-md mx-auto bg-white rounded-lg shadow-md overflow-hidden">
+        <div class="p-6">
+            <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-4" role="alert">
+                <p class="font-bold">Already logged in!</p>
+                <p>You are already logged in as {{ user.username }}.</p>
+            </div>
+            
+            <div class="flex justify-between items-center mt-6">
+                <a href="/admin/dashboard" 
+                   class="bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline inline-flex items-center">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                    </svg>
+                    Go to Dashboard
+                </a>
+                
+                <button 
+                    class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline inline-flex items-center"
+                    hx-post="/logout"
+                    hx-push-url="true"
+                    hx-target="body">                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+                    </svg>
+                    Logout
+                </button>
+            </div>
+        </div>
+    </div>
+{% else %}
+    <!-- If not logged in, show the login form -->
+    <div class="max-w-md mx-auto bg-white rounded-lg shadow-md overflow-hidden">
+        <div class="p-6">
+            <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">Admin Login</h2>
+            
+            <!-- Login form with HTMX -->
+            <form hx-post="/admin/login" hx-target="#form-messages" hx-swap="outerHTML">
+                <!-- Form messages will be displayed here -->
+                <div id="form-messages">
+                    {% if error %}
+                    <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4" role="alert">
+                        <p>{{ error }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block text-gray-700 text-sm font-bold mb-2" for="username">
+                        Username
+                    </label>
+                    <input 
+                        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                        id="username"
+                        name="username"
+                        type="text"
+                        placeholder="Username"
+                        required
+                    >
+                </div>
+                
+                <div class="mb-6">
+                    <label class="block text-gray-700 text-sm font-bold mb-2" for="password">
+                        Password
+                    </label>
+                    <input 
+                        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                        id="password"
+                        name="password"
+                        type="password"
+                        placeholder="******************"
+                        required
+                    >
+                </div>
+                
+                <div class="flex items-center justify-between">
+                    <button 
+                        class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline w-full"
+                        type="submit"
+                    >
+                        Sign In
+                    </button>
+                </div>
+            </form>
+            
+            <!-- Login with HTMX explanation -->
+            <div class="mt-6 bg-gray-50 p-4 rounded text-sm text-gray-700 border border-gray-100">
+                <h3 class="font-bold mb-2">How this works:</h3>
+                <ol class="list-decimal list-inside space-y-1">
+                    <li>Form submits data using HTMX's <code>hx-post</code> to "/admin/login"</li>
+                    <li>Server validates credentials</li>
+                    <li>If valid, server returns a redirect response to dashboard</li>
+                    <li>If invalid, server returns an error message inserted into <code>#form-messages</code></li>
+                </ol>
+            </div>
+        </div>
+    </div>
+{% endif %}
+{% endblock %}

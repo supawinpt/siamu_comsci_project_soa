@@ -1,0 +1,33 @@
+<header class="bg-white shadow">
+    <div class="container mx-auto px-4 py-4">
+        <div class="flex justify-between items-center">
+            <div class="flex items-center">
+                <!-- Logo -->
+                <a href="{% if user %}/admin/dashboard{% else %}/admin/login{% endif %}" class="text-2xl font-bold text-gray-800 hover:text-indigo-600 transition">
+                    E-Commerce Admin
+                </a>
+            </div>
+            
+            <!-- Admin info if logged in -->
+            {% if user %}
+            <div class="flex items-center">
+                <div class="flex items-center mr-6">
+                    <div class="w-8 h-8 rounded-full bg-indigo-500 text-white flex items-center justify-center mr-2">
+                        {{ user.username[0] | upper }}
+                    </div>
+                    <span class="font-medium text-gray-700">{{ user.username }}</span>
+                </div>
+                <button class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded shadow-sm transition duration-150 ease-in-out flex items-center"
+                        hx-post="/logout"
+                        hx-push-url="true"
+                        hx-target="body">
+                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+                    </svg>
+                    Logout
+                </button>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</header>

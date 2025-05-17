@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  # FastAPI application
+  backend:
+    image: <username>/project-ecom-soa:latest
+    container_name: fastapi_app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    environment:
+      - DB_HOST=db  # Using the service name as the host
+      - DB_USER=root
+      - DB_PASSWORD=1111
+      - DB_NAME=nor_db
+    volumes:
+      - ./uploads:/app/uploads  # Persist uploads folder
+    # Wait for MySQL to be ready before starting
+    command: >
+      sh -c "
+        echo 'Waiting for MySQL to be ready...'
+        while ! nc -z db 3306; do
+          sleep 1
+        done
+        echo 'MySQL is ready!'
+        uvicorn main:app --host 0.0.0.0 --port 8000
+      "
+
+  # MySQL database
+  db:
+    image: mysql:5.7
+    platform: linux/amd64
+    container_name: db_mysql2
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=1111
+      - MYSQL_DATABASE=nor_db
+    volumes:
+      - mysql_data:/var/lib/mysql  # Persist database data
+      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql  # Initialize database with schema.sql
+
+  # phpMyAdmin (optional)
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    platform: linux/amd64
+    container_name: db_phpmyadmin2
+    ports:
+      - "8888:80"
+    environment:
+      - PMA_HOST=db
+      - PMA_USER=root
+      - PMA_PASSWORD=1111
+    depends_on:
+      - db
+
+volumes:
+  mysql_data:  # Named volume for MySQL data persistence

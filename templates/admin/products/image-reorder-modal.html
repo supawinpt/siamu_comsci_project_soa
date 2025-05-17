@@ -1,0 +1,93 @@
+<!-- Image reordering modal -->
+<div class="fixed inset-0 overflow-y-auto z-50 flex items-center justify-center">
+    <!-- Backdrop -->
+    <div class="fixed inset-0 bg-black bg-opacity-50 transition-opacity" 
+         hx-on:click="document.getElementById('image-reorder-modal').innerHTML = ''"></div>
+    
+    <!-- Modal content -->
+    <div class="relative bg-white rounded-lg max-w-md w-full mx-auto shadow-xl overflow-hidden">
+        <div class="p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-medium text-gray-900">Reorder Product Images</h3>
+                <button type="button" 
+                        class="text-gray-400 hover:text-gray-500"
+                        hx-on:click="document.getElementById('image-reorder-modal').innerHTML = ''">
+                    <span class="sr-only">Close</span>
+                    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <p class="text-sm text-gray-500 mb-4">Drag and drop images to change their order.</p>
+            
+            <!-- Sortable image list -->
+            <div id="image-sortable-container" class="space-y-2" hx-indicator="#reorder-indicator">
+                {% for image in product_images %}
+                <div id="sort-item-{{ image.image_id }}" class="flex items-center p-2 bg-gray-50 rounded border border-gray-200 cursor-move">
+                    <div class="flex-shrink-0 w-10 h-10 mr-3">
+                        <img src="{{ image.image_url }}" alt="Product image" class="w-full h-full object-cover rounded">
+                    </div>
+                    <div class="flex-grow text-sm truncate">
+                        {{ "Primary" if image.is_primary else "Image" }} {{ loop.index }}
+                    </div>
+                    <div class="flex-shrink-0 text-gray-400">
+                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path>
+                        </svg>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <!-- Save button -->
+            <div class="mt-6 flex justify-end">
+                <div id="reorder-indicator" class="htmx-indicator flex items-center mr-3">
+                    <svg class="animate-spin h-5 w-5 text-indigo-500 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span class="text-sm text-gray-500">Saving...</span>
+                </div>
+                <button type="button"
+                        class="bg-indigo-600 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                        id="save-order-button">
+                    Save Order
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Sortable.js library -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.14.0/Sortable.min.js"></script>
+
+<script>
+    // Initialize Sortable.js
+    const sortableContainer = document.getElementById('image-sortable-container');
+    const sortable = new Sortable(sortableContainer, {
+        animation: 150,
+        ghostClass: 'bg-indigo-50'
+    });
+    
+    // Save order button
+    document.getElementById('save-order-button').addEventListener('click', function() {
+        // Get the current order of image IDs
+        const imageIds = Array.from(sortableContainer.children).map(item => {
+            return parseInt(item.id.replace('sort-item-', ''));
+        });
+        
+        // Send the order to the server using HTMX
+        htmx.ajax('PUT', '/admin/products/{{ product.product_id }}/images/reorder', {
+            target: '#product-images',
+            swap: 'outerHTML',
+            indicator: '#reorder-indicator',
+            values: {
+                image_ids: imageIds
+            }
+        }).then(() => {
+            // Close the modal after successful update
+            document.getElementById('image-reorder-modal').innerHTML = '';
+        });
+    });
+</script>

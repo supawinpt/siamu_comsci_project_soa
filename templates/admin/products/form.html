@@ -1,0 +1,580 @@
+{% extends "base.html" %}
+
+{% block title %}{% if product %}Edit{% else %}Add New{% endif %} Product - Admin{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Custom image preview styles */
+    .image-preview {
+        position: relative;
+        border-radius: 0.375rem;
+        overflow: hidden;
+    }
+    
+    .image-preview .remove-btn {
+        position: absolute;
+        top: 0.25rem;
+        right: 0.25rem;
+        background: rgba(255, 255, 255, 0.8);
+        border-radius: 9999px;
+        padding: 0.25rem;
+        cursor: pointer;
+        opacity: 0;
+        transition: opacity 150ms ease-in-out;
+    }
+    
+    .image-preview:hover .remove-btn {
+        opacity: 1;
+    }
+    
+    /* Loading states */
+    .htmx-indicator {
+        opacity: 0;
+        transition: opacity 200ms ease-in;
+    }
+    .htmx-request .htmx-indicator {
+        opacity: 1;
+    }
+    .htmx-request.htmx-indicator {
+        opacity: 1;
+    }
+    
+    /* Image upload dropzone */
+    .dropzone {
+        border: 2px dashed #CBD5E0;
+        transition: all 150ms ease-in-out;
+    }
+    .dropzone:hover, .dropzone.dragover {
+        border-color: #4F46E5;
+        background-color: rgba(79, 70, 229, 0.05);
+    }
+    
+    /* Form validation styles */
+    .input-error {
+        border-color: #F87171 !important;
+        background-color: #FEF2F2 !important;
+    }
+    
+    .error-message {
+        color: #DC2626;
+        font-size: 0.75rem;
+        margin-top: 0.25rem;
+    }
+    
+    /* Success animation */
+    @keyframes success-pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+        100% { transform: scale(1); }
+    }
+    
+    .success-pulse {
+        animation: success-pulse 0.5s ease-in-out;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto bg-white shadow rounded-lg">
+    <div class="p-6 sm:p-8">
+        <!-- Page header -->
+        <div class="border-b border-gray-200 pb-4 mb-6">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-800">{% if product %}Edit{% else %}Add New{% endif %} Product</h2>
+                    <p class="text-gray-600 mt-1">
+                        {% if product %}
+                            Edit information for "{{ product.name }}"
+                        {% else %}
+                            Create a new product in your inventory
+                        {% endif %}
+                    </p>
+                </div>
+                <a href="/admin/products" 
+                   class="bg-gray-100 hover:bg-gray-200 text-gray-800 py-2 px-4 rounded shadow-sm transition flex items-center">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                    </svg>
+                    Back to Products
+                </a>
+            </div>
+        </div>
+        
+        <!-- Main form section -->
+        <div id="product-form-container">
+            <!-- Success/error messages -->
+            {% if success %}
+            <div class="bg-green-50 border-l-4 border-green-500 text-green-700 p-4 mb-6 success-pulse" role="alert">
+                <p class="font-bold">Success!</p>
+                <p>{{ success }}</p>
+            </div>
+            {% endif %}
+            
+            {% if error %}
+            <div class="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 mb-6" role="alert">
+                <p class="font-bold">Error</p>
+                <p>{{ error }}</p>
+            </div>
+            {% endif %}
+
+            <!-- Field-specific errors -->
+            <div id="validation-errors" class="mb-6 hidden">
+                <!-- Populated by JavaScript when form validation fails -->
+            </div>
+            
+            <!-- Product form -->
+            <form 
+                id="product-form"
+                hx-{% if product %}put{% else %}post{% endif %}="/admin/products{% if product %}/{{ product.product_id }}{% endif %}" 
+                hx-target="#product-form-container"
+                hx-indicator="#form-indicator"
+                hx-swap="outerHTML"
+                enctype="multipart/form-data"
+                class="space-y-8"
+            >
+                <!-- Loading indicator -->
+                <div id="form-indicator" class="htmx-indicator fixed inset-0 flex items-center justify-center bg-black bg-opacity-20 z-50">
+                    <div class="bg-white p-4 rounded-lg shadow-lg flex items-center">
+                        <svg class="animate-spin h-5 w-5 text-indigo-500 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span class="text-gray-700">Processing...</span>
+                    </div>
+                </div>
+                
+                <!-- Form layout: 2 columns on larger screens -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <!-- Left column: Basic info -->
+                    <div class="space-y-6">
+                        <h3 class="text-lg font-medium text-gray-900 border-b border-gray-200 pb-2">Basic Information</h3>
+                        
+                        <!-- Product name -->
+                        <div>
+                            <label for="name" class="block text-sm font-medium text-gray-700 mb-1">
+                                Product Name <span class="text-red-500">*</span>
+                            </label>
+                            <input 
+                                type="text" 
+                                id="name" 
+                                name="name" 
+                                value="{{ form_data.name if form_data else (product.name if product else '') }}"
+                                required
+                                minlength="2"
+                                maxlength="100"
+                                class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md {% if validation_errors and validation_errors.name %}input-error{% endif %}"
+                                placeholder="Enter product name"
+                                aria-describedby="name-error"
+                            >
+                            <p class="mt-1 text-xs text-gray-500">Between 2-100 characters</p>
+                            <div id="name-error" class="error-message {% if not validation_errors or not validation_errors.name %}hidden{% endif %}">
+                                {% if validation_errors and validation_errors.name %}{{ validation_errors.name }}{% endif %}
+                            </div>
+                        </div>
+                        
+                        <!-- Product description -->
+                        <div>
+                            <label for="description" class="block text-sm font-medium text-gray-700 mb-1">
+                                Description
+                            </label>
+                            <textarea 
+                                id="description" 
+                                name="description" 
+                                rows="4"
+                                class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md {% if validation_errors and validation_errors.description %}input-error{% endif %}"
+                                placeholder="Enter product description"
+                                aria-describedby="description-error"
+                            >{{ form_data.description if form_data else (product.description if product and product.description else '') }}</textarea>
+                            <div id="description-error" class="error-message {% if not validation_errors or not validation_errors.description %}hidden{% endif %}">
+                                {% if validation_errors and validation_errors.description %}{{ validation_errors.description }}{% endif %}
+                            </div>
+                        </div>
+                        
+                        <!-- Price and stock -->
+                        <div class="grid grid-cols-2 gap-4">
+                            <!-- Price -->
+                            <div>
+                                <label for="price" class="block text-sm font-medium text-gray-700 mb-1">
+                                    Price (THB) <span class="text-red-500">*</span>
+                                </label>
+                                <div class="relative rounded-md shadow-sm">
+                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <span class="text-gray-500 sm:text-sm">฿</span>
+                                    </div>
+                                    <input 
+                                        type="number" 
+                                        id="price" 
+                                        name="price" 
+                                        value="{{ "%.2f"|format(form_data.price) if form_data else ("%.2f"|format(product.price) if product else '') }}"
+                                        min="0.01" 
+                                        step="0.01"
+                                        required
+                                        class="focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-7 sm:text-sm border-gray-300 rounded-md {% if validation_errors and validation_errors.price %}input-error{% endif %}"
+                                        placeholder="0.00"
+                                        aria-describedby="price-error"
+                                    >
+                                </div>
+                                <p class="mt-1 text-xs text-gray-500">Price must be greater than 0</p>
+                                <div id="price-error" class="error-message {% if not validation_errors or not validation_errors.price %}hidden{% endif %}">
+                                    {% if validation_errors and validation_errors.price %}{{ validation_errors.price }}{% endif %}
+                                </div>
+                            </div>
+                            
+                            <!-- Stock quantity -->
+                            <div>
+                                <label for="stock_quantity" class="block text-sm font-medium text-gray-700 mb-1">
+                                    Stock Quantity <span class="text-red-500">*</span>
+                                </label>
+                                <input 
+                                    type="number" 
+                                    id="stock_quantity" 
+                                    name="stock_quantity" 
+                                    value="{{ form_data.stock_quantity if form_data else (product.stock_quantity if product else '0') }}"
+                                    min="0" 
+                                    step="1"
+                                    required
+                                    class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md {% if validation_errors and validation_errors.stock_quantity %}input-error{% endif %}"
+                                    placeholder="0"
+                                    aria-describedby="stock-error"
+                                >
+                                <p class="mt-1 text-xs text-gray-500">Cannot be negative</p>
+                                <div id="stock-error" class="error-message {% if not validation_errors or not validation_errors.stock_quantity %}hidden{% endif %}">
+                                    {% if validation_errors and validation_errors.stock_quantity %}{{ validation_errors.stock_quantity }}{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Right column: Images -->
+                    <div class="space-y-6">
+                        <h3 class="text-lg font-medium text-gray-900 border-b border-gray-200 pb-2">Product Images</h3>
+                        
+                        <!-- Image upload dropzone -->
+                        <div 
+                            id="image-dropzone"
+                            class="dropzone border-2 border-dashed border-gray-300 rounded-md p-6 flex flex-col items-center justify-center text-center cursor-pointer"
+                            hx-post="/admin/products/{% if product %}{{ product.product_id }}{% else %}upload-temp{% endif %}/images"
+                            hx-trigger="dragover, dragleave, dropped"
+                            hx-target="#product-images"
+                            hx-indicator="#upload-indicator"
+                            hx-encoding="multipart/form-data"
+                            hx-swap="innerHTML"
+                        >
+                            <input 
+                                type="file" 
+                                id="file" 
+                                name="file" 
+                                class="hidden"
+                                accept="image/jpeg,image/png,image/gif,image/webp"
+                                hx-post="/admin/products/{% if product %}{{ product.product_id }}{% else %}upload-temp{% endif %}/images"
+                                hx-trigger="change"
+                                hx-target="#product-images"
+                                hx-indicator="#upload-indicator"
+                                hx-encoding="multipart/form-data"
+                                hx-swap="innerHTML"
+                            >
+                            <label for="file" class="w-full h-full cursor-pointer">
+                                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                </svg>
+                                <p class="mt-1 text-sm text-gray-600">Drag and drop image files here, or click to select files</p>
+                                <p class="mt-1 text-xs text-gray-500">JPG, PNG, GIF, WEBP up to 5MB</p>
+                            </label>
+                            
+                            <!-- Upload indicator -->
+                            <div id="upload-indicator" class="htmx-indicator mt-2">
+                                <svg class="animate-spin h-5 w-5 text-indigo-500 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <p class="text-xs text-gray-500 mt-1">Uploading image...</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Current images grid with reordering and primary selection -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-3">
+                                Product Images
+                                {% if product and product_images %}
+                                <span class="text-xs text-gray-500 ml-2">({{ product_images|length }} images)</span>
+                                {% endif %}
+                            </label>
+                            
+                            <div id="product-images" class="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-2">
+                                {% if product_images %}
+                                    {% for image in product_images %}
+                                    <div class="image-preview relative border border-gray-200 rounded-md overflow-hidden" id="image-{{ image.image_id }}">
+                                        <img src="{{ image.image_url }}" alt="Product image" class="w-full h-24 object-cover">
+                                        <div class="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-10 transition-all">
+                                            <div class="absolute bottom-0 left-0 right-0 bg-white bg-opacity-90 p-1 flex items-center justify-between text-xs">
+                                                <!-- Set as primary button -->
+                                                <button 
+                                                    type="button"
+                                                    hx-put="/admin/products/{{ product.product_id }}/images/{{ image.image_id }}/set-primary"
+                                                    hx-target="#product-images"
+                                                    hx-indicator="#image-{{ image.image_id }}-indicator"
+                                                    class="{% if image.is_primary %}text-green-600 font-medium{% else %}text-gray-600 hover:text-gray-900{% endif %} flex items-center">
+                                                    <span class="mr-1">
+                                                        {% if image.is_primary %}
+                                                        <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                                                        </svg>
+                                                        {% else %}
+                                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                                        </svg>
+                                                        {% endif %}
+                                                    </span>
+                                                    {% if image.is_primary %}Primary{% else %}Set primary{% endif %}
+                                                </button>
+                                                
+                                                <!-- Delete image button -->
+                                                <button
+                                                    type="button"
+                                                    hx-delete="/admin/products/{{ product.product_id }}/images/{{ image.image_id }}"
+                                                    hx-target="#product-images"
+                                                    hx-confirm="Delete this image?"
+                                                    hx-indicator="#image-{{ image.image_id }}-indicator"
+                                                    class="text-red-600 hover:text-red-900">
+                                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <!-- Loading indicator for this specific image -->
+                                        <div id="image-{{ image.image_id }}-indicator" class="htmx-indicator absolute inset-0 flex items-center justify-center bg-white bg-opacity-70">
+                                            <svg class="animate-spin h-5 w-5 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                {% else %}
+                                <!-- No images placeholder -->
+                                <div class="col-span-full text-center py-4 text-gray-500 text-sm">
+                                    <p>No images uploaded yet</p>
+                                    <p class="text-xs mt-1">Upload images using the area above</p>
+                                </div>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Image reordering button (only show if more than 1 image) -->
+                            {% if product_images and product_images|length > 1 %}
+                            <button
+                                type="button"
+                                class="mt-4 text-sm text-indigo-600 hover:text-indigo-900"
+                                hx-get="/admin/products/{{ product.product_id }}/images/reorder-ui"
+                                hx-target="#image-reorder-modal"
+                                hx-trigger="click"
+                            >
+                                <svg class="inline-block w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"></path>
+                                </svg>
+                                Reorder images
+                            </button>
+                            {% endif %}
+                        </div>
+
+                        <!-- Detailed explanation of image features -->
+                        <div class="mt-4 bg-gray-50 p-3 rounded-md border border-gray-100 text-xs text-gray-600">
+                            <h4 class="font-medium mb-1 text-gray-700">Image Management Features:</h4>
+                            <ul class="list-disc list-inside space-y-1">
+                                <li>Upload images by drag-and-drop or file selection</li>
+                                <li>Set a primary image that will be displayed in listings</li>
+                                <li>Reorder images to change their display sequence</li>
+                                <li>Delete images you no longer need</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Submit buttons -->
+                <div class="flex justify-end space-x-3 border-t border-gray-200 pt-6">
+                    <a 
+                        href="/admin/products" 
+                        class="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                    >
+                        Cancel
+                    </a>
+                    <button 
+                        type="submit" 
+                        class="bg-indigo-600 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 flex items-center"
+                    >
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path>
+                        </svg>
+                        {% if product %}Save Changes{% else %}Create Product{% endif %}
+                    </button>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Image reordering modal (empty div for HTMX to populate) -->
+        <div id="image-reorder-modal"></div>
+        
+        <!-- HTMX Features Explanation -->
+        <div class="mt-8 bg-gray-50 p-5 rounded-lg border border-gray-100 text-sm text-gray-700">
+            <h3 class="font-bold mb-2 text-gray-800">Product Form Features:</h3>
+            <ul class="list-disc list-inside space-y-1">
+                <li><span class="font-medium">HTMX-powered form submission</span> - sends form data without page refresh</li>
+                <li><span class="font-medium">Client-side validation</span> - checks entries before submission</li>
+                <li><span class="font-medium">Server-side validation</span> - ensures data integrity</li>
+                <li><span class="font-medium">Real-time feedback</span> - shows loading states and validation errors</li>
+                <li><span class="font-medium">Image management</span> - upload, delete, set as primary, and reorder</li>
+                <li><span class="font-medium">Responsive design</span> - works on all device sizes</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // ========== Drag and drop handling ==========
+        const dropzone = document.getElementById('image-dropzone');
+        if (dropzone) {
+            // Prevent default drag behaviors
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropzone.addEventListener(eventName, preventDefaults, false);
+                document.body.addEventListener(eventName, preventDefaults, false);
+            });
+            
+            // Highlight drop area when dragging over it
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropzone.addEventListener(eventName, highlight, false);
+            });
+            
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropzone.addEventListener(eventName, unhighlight, false);
+            });
+            
+            // Handle dropped files
+            dropzone.addEventListener('drop', handleDrop, false);
+            
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            
+            function highlight() {
+                dropzone.classList.add('dragover');
+            }
+            
+            function unhighlight() {
+                dropzone.classList.remove('dragover');
+            }
+            
+            function handleDrop(e) {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                
+                if (files.length > 0) {
+                    const fileInput = document.getElementById('file');
+                    fileInput.files = files;
+                    
+                    // Trigger the HTMX request manually
+                    htmx.trigger(fileInput, 'change');
+                }
+            }
+        }
+        
+        // ========== Form validation ==========
+        const form = document.getElementById('product-form');
+        
+        if (form) {
+            form.addEventListener('htmx:beforeRequest', function(event) {
+                // Reset validation state
+                const fields = form.querySelectorAll('input, textarea');
+                fields.forEach(field => {
+                    field.classList.remove('input-error');
+                    const errorElement = document.getElementById(`${field.id}-error`);
+                    if (errorElement) {
+                        errorElement.textContent = '';
+                        errorElement.classList.add('hidden');
+                    }
+                });
+                
+                const validationErrorsContainer = document.getElementById('validation-errors');
+                validationErrorsContainer.innerHTML = '';
+                validationErrorsContainer.classList.add('hidden');
+                
+                // Validate form fields
+                let isValid = true;
+                
+                // Name validation
+                const nameField = document.getElementById('name');
+                if (nameField && nameField.value.trim() === '') {
+                    showError(nameField, 'Product name is required');
+                    isValid = false;
+                } else if (nameField && nameField.value.trim().length < 2) {
+                    showError(nameField, 'Product name must be at least 2 characters');
+                    isValid = false;
+                }
+                
+                // Price validation
+                const priceField = document.getElementById('price');
+                if (priceField && (priceField.value === '' || parseFloat(priceField.value) <= 0)) {
+                    showError(priceField, 'Price must be greater than 0');
+                    isValid = false;
+                }
+                
+                // Stock validation
+                const stockField = document.getElementById('stock_quantity');
+                if (stockField && (stockField.value === '' || parseInt(stockField.value) < 0)) {
+                    showError(stockField, 'Stock quantity cannot be negative');
+                    isValid = false;
+                }
+                
+                if (!isValid) {
+                    // Show validation errors summary
+                    const errorMessages = [];
+                    document.querySelectorAll('.error-message:not(.hidden)').forEach(el => {
+                        errorMessages.push(el.textContent);
+                    });
+                    
+                    if (errorMessages.length > 0) {
+                        validationErrorsContainer.innerHTML = `
+                            <div class="bg-red-50 border-l-4 border-red-500 text-red-700 p-4" role="alert">
+                                <p class="font-bold">Please fix the following errors:</p>
+                                <ul class="list-disc list-inside mt-1">
+                                    ${errorMessages.map(msg => `<li>${msg}</li>`).join('')}
+                                </ul>
+                            </div>
+                        `;
+                        validationErrorsContainer.classList.remove('hidden');
+                    }
+                    
+                    // Prevent form submission
+                    event.preventDefault();
+                }
+            });
+            
+            // Function to show field error
+            function showError(field, message) {
+                field.classList.add('input-error');
+                const errorElement = document.getElementById(`${field.id}-error`);
+                if (errorElement) {
+                    errorElement.textContent = message;
+                    errorElement.classList.remove('hidden');
+                }
+            }
+        }
+        
+        // ========== Handle success message auto-hide ==========
+        const successMessage = document.querySelector('.bg-green-50.border-l-4.border-green-500');
+        if (successMessage) {
+            setTimeout(() => {
+                successMessage.style.transition = 'opacity 1s ease-out';
+                successMessage.style.opacity = '0';
+                setTimeout(() => {
+                    successMessage.style.display = 'none';
+                }, 1000);
+            }, 5000);
+        }
+    });
+</script>
+{% endblock %}
